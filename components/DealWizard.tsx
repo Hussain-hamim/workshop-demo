@@ -392,7 +392,10 @@ function DealWizardReady({
   }
 
   const isWorking =
-    Boolean(busy) && busy !== "Saving..." && busy !== "Saving transcript...";
+    Boolean(busy) &&
+    busy !== "Saving..." &&
+    busy !== "Saving transcript..." &&
+    busy !== "Writing transcript...";
 
   async function saveEdits() {
     setError(null);
@@ -407,6 +410,37 @@ function DealWizardReady({
       prefetchStep(step + 1, saved);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function generateMockTranscript() {
+    setError(null);
+    setBusy("Writing transcript...");
+    try {
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          step: "transcript",
+          deal: dealRef.current,
+        }),
+      });
+      const json = (await res.json()) as {
+        artifact?: unknown;
+        liveAi?: boolean;
+        error?: string;
+      };
+      if (!res.ok) throw new Error(json.error || "Could not write transcript");
+      const text = typeof json.artifact === "string" ? json.artifact.trim() : "";
+      if (!text) throw new Error("Empty transcript — hit Generate again");
+      setTranscriptDraft(text);
+      const saved = await patchDeal(storageMode, deal.id, { transcript: text });
+      refreshFrom({ deal: saved, liveAi: json.liveAi });
+      prefetchStep(3, saved);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not write transcript");
     } finally {
       setBusy(null);
     }
@@ -590,24 +624,39 @@ function DealWizardReady({
 
         {step === 3 ? (
           <div className="mb-8 space-y-2">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Call transcript
               </h3>
-              <button
-                type="button"
-                className="text-sm text-teal-900 underline disabled:opacity-50"
-                disabled={Boolean(busy)}
-                onClick={saveTranscript}
-              >
-                Save transcript
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-teal-900 px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
+                  disabled={Boolean(busy)}
+                  onClick={generateMockTranscript}
+                >
+                  <Sparkles size={14} />
+                  {busy === "Writing transcript..."
+                    ? "Writing transcript…"
+                    : transcriptDraft.trim()
+                      ? "Regenerate mock transcript"
+                      : "Generate mock transcript"}
+                </button>
+                <button
+                  type="button"
+                  className="text-sm text-teal-900 underline disabled:opacity-50"
+                  disabled={Boolean(busy)}
+                  onClick={saveTranscript}
+                >
+                  Save transcript
+                </button>
+              </div>
             </div>
             <textarea
               className="min-h-[200px] w-full rounded-2xl border border-stone-300 bg-[#fbfaf6] px-4 py-3 font-mono text-xs leading-relaxed outline-none focus:border-teal-800 focus:ring-2 focus:ring-teal-800/20"
               value={transcriptDraft}
               onChange={(e) => setTranscriptDraft(e.target.value)}
-              placeholder="Paste the discovery call transcript here."
+              placeholder="Paste a discovery call, or generate a mock transcript with AI."
             />
           </div>
         ) : null}
