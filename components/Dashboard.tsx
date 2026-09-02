@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowRight,
   CheckCircle2,
@@ -11,7 +11,13 @@ import {
   Truck,
   XCircle,
 } from "lucide-react";
-import type { DealListItem } from "@/lib/types";
+import {
+  createDeal as createStoredDeal,
+  createSample,
+  fetchLiveAi,
+  listDeals,
+} from "@/lib/clientDeals";
+import type { DealListItem, StorageMode } from "@/lib/types";
 import { ModeBadge } from "./ModeBadge";
 import { Pipeline } from "./visuals";
 
@@ -39,14 +45,11 @@ const AFTER = [
   "Proposal",
 ];
 
-export function Dashboard({
-  deals,
-  liveAi,
-}: {
-  deals: DealListItem[];
-  liveAi: boolean;
-}) {
+export function Dashboard({ storageMode }: { storageMode: StorageMode }) {
   const router = useRouter();
+  const [deals, setDeals] = useState<DealListItem[]>([]);
+  const [liveAi, setLiveAi] = useState(false);
+  const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -56,18 +59,38 @@ export function Dashboard({
     contact_title: "",
   });
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [ai, listed] = await Promise.all([
+          fetchLiveAi(),
+          listDeals(storageMode),
+        ]);
+        if (cancelled) return;
+        setLiveAi(
+          typeof listed.liveAi === "boolean" ? listed.liveAi : ai,
+        );
+        setDeals(listed.deals);
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : "Could not load deals");
+        }
+      } finally {
+        if (!cancelled) setReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [storageMode]);
+
   async function loadSample(mode: "walkthrough" | "completed") {
     setError(null);
     setBusy(mode);
     try {
-      const res = await fetch("/api/deals/sample", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Could not load sample");
-      router.push(`/deals/${json.deal.id}`);
+      const deal = await createSample(storageMode, mode);
+      router.push(`/deals/${deal.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load sample");
       setBusy(null);
@@ -80,14 +103,8 @@ export function Dashboard({
     setError(null);
     setBusy("create");
     try {
-      const res = await fetch("/api/deals", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Could not create deal");
-      router.push(`/deals/${json.deal.id}`);
+      const deal = await createStoredDeal(storageMode, form);
+      router.push(`/deals/${deal.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create deal");
       setBusy(null);
@@ -226,8 +243,8 @@ export function Dashboard({
           {!liveAi ? (
             <p className="mb-4 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-950">
               Add <code>OPENAI_API_KEY</code> or <code>OPENROUTER_API_KEY</code>{" "}
-              in <code>.env</code> / <code>.env.local</code> to research any
-              company live.
+              in <code>.env.local</code> or Vercel env to research any company
+              live.
             </p>
           ) : (
             <p className="mb-4 text-sm text-slate-600">
@@ -288,7 +305,9 @@ export function Dashboard({
 
       <section>
         <h2 className="mb-3 font-display text-xl">Deals in this session</h2>
-        {deals.length === 0 ? (
+        {!ready ? (
+          <p className="text-sm text-slate-500">Loading deals…</p>
+        ) : deals.length === 0 ? (
           <p className="text-sm text-slate-500">
             No deals yet. Hit the gold walkthrough button to begin.
           </p>

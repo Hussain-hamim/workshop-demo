@@ -1,3 +1,5 @@
+export type StorageMode = "browser" | "sqlite";
+
 export type GenerateStep =
   | "account_brief"
   | "discovery_plan"

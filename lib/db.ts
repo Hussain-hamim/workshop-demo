@@ -1,7 +1,7 @@
-import Database from "better-sqlite3";
 import fs from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
+import type { Database as SqliteDatabase } from "better-sqlite3";
 import type {
   AccountBrief,
   Deal,
@@ -42,10 +42,19 @@ type DealRow = {
   created_at: string;
 };
 
-const globalForDb = globalThis as unknown as { dealPrepDb?: Database.Database };
+const globalForDb = globalThis as unknown as { dealPrepDb?: SqliteDatabase };
 
-function getDb() {
+function getDb(): SqliteDatabase {
+  if (process.env.VERCEL) {
+    throw new Error(
+      "SQLite is not available on Vercel. Deal data is stored in the browser.",
+    );
+  }
   if (globalForDb.dealPrepDb) return globalForDb.dealPrepDb;
+
+  // Loaded only when a local API route actually needs the file DB.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const Database = require("better-sqlite3") as typeof import("better-sqlite3");
   const dataDir = path.join(process.cwd(), "data");
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
@@ -73,8 +82,6 @@ function getDb() {
   `);
   return db;
 }
-
-const db = getDb();
 
 function parseJson<T>(value: string | null): T | null {
   if (!value) return null;
@@ -108,7 +115,7 @@ function rowToDeal(row: DealRow): Deal {
 }
 
 export function listDeals(): DealListItem[] {
-  const rows = db
+  const rows = getDb()
     .prepare(
       `SELECT id, company_name, contact_name, contact_title, current_step, is_sample, created_at
        FROM deals ORDER BY created_at DESC`,
@@ -137,9 +144,9 @@ export function listDeals(): DealListItem[] {
 }
 
 export function getDeal(id: string): Deal | null {
-  const row = db.prepare("SELECT * FROM deals WHERE id = ?").get(id) as
-    | DealRow
-    | undefined;
+  const row = getDb()
+    .prepare("SELECT * FROM deals WHERE id = ?")
+    .get(id) as DealRow | undefined;
   return row ? rowToDeal(row) : null;
 }
 
@@ -160,36 +167,38 @@ export function createDeal(input: {
 }): Deal {
   const id = randomUUID();
   const created_at = new Date().toISOString();
-  db.prepare(
-    `INSERT INTO deals (
+  getDb()
+    .prepare(
+      `INSERT INTO deals (
       id, company_name, company_url, contact_name, contact_title,
       current_step, is_sample, account_brief, discovery_plan, transcript,
       structured_requirements, follow_up_questions, solution_hypothesis,
       proposal, created_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    id,
-    input.company_name,
-    input.company_url ?? "",
-    input.contact_name ?? "",
-    input.contact_title ?? "",
-    input.current_step ?? 1,
-    input.is_sample ? 1 : 0,
-    input.account_brief ? JSON.stringify(input.account_brief) : null,
-    input.discovery_plan ? JSON.stringify(input.discovery_plan) : null,
-    input.transcript ?? null,
-    input.structured_requirements
-      ? JSON.stringify(input.structured_requirements)
-      : null,
-    input.follow_up_questions
-      ? JSON.stringify(input.follow_up_questions)
-      : null,
-    input.solution_hypothesis
-      ? JSON.stringify(input.solution_hypothesis)
-      : null,
-    input.proposal ? JSON.stringify(input.proposal) : null,
-    created_at,
-  );
+    )
+    .run(
+      id,
+      input.company_name,
+      input.company_url ?? "",
+      input.contact_name ?? "",
+      input.contact_title ?? "",
+      input.current_step ?? 1,
+      input.is_sample ? 1 : 0,
+      input.account_brief ? JSON.stringify(input.account_brief) : null,
+      input.discovery_plan ? JSON.stringify(input.discovery_plan) : null,
+      input.transcript ?? null,
+      input.structured_requirements
+        ? JSON.stringify(input.structured_requirements)
+        : null,
+      input.follow_up_questions
+        ? JSON.stringify(input.follow_up_questions)
+        : null,
+      input.solution_hypothesis
+        ? JSON.stringify(input.solution_hypothesis)
+        : null,
+      input.proposal ? JSON.stringify(input.proposal) : null,
+      created_at,
+    );
   return getDeal(id)!;
 }
 
@@ -210,6 +219,7 @@ export function updateDeal(
   const existing = getDeal(id);
   if (!existing) return null;
 
+  const db = getDb();
   const sets: string[] = [];
   const values: unknown[] = [];
 

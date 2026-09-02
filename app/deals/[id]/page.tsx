@@ -1,7 +1,5 @@
-import { notFound } from "next/navigation";
 import { DealWizard } from "@/components/DealWizard";
-import { getDeal } from "@/lib/db";
-import { isLiveAi } from "@/lib/ai";
+import type { StorageMode } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +9,6 @@ export default async function DealPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const deal = getDeal(id);
-  if (!deal) notFound();
-  return <DealWizard initialDeal={deal} initialLiveAi={isLiveAi()} />;
+  const storageMode: StorageMode = process.env.VERCEL ? "browser" : "sqlite";
+  return <DealWizard dealId={id} storageMode={storageMode} />;
 }

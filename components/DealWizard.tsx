@@ -11,7 +11,14 @@ import type {
   FollowUpQuestions,
   SolutionHypothesis,
   Proposal,
+  StorageMode,
 } from "@/lib/types";
+import {
+  fetchLiveAi,
+  getDeal,
+  mergeArtifact,
+  patchDeal,
+} from "@/lib/clientDeals";
 import { proposalToMarkdown } from "@/lib/proposalMarkdown";
 import { AccountBriefView } from "./AccountBriefView";
 import { DiscoveryPlanView } from "./DiscoveryPlanView";
@@ -125,11 +132,84 @@ function canGenerate(deal: Deal, n: number) {
 type GenResult = { deal?: Deal; liveAi?: boolean; error?: string };
 
 export function DealWizard({
+  dealId,
+  storageMode,
+}: {
+  dealId: string;
+  storageMode: StorageMode;
+}) {
+  const [deal, setDeal] = useState<Deal | null>(null);
+  const [liveAi, setLiveAi] = useState(false);
+  const [status, setStatus] = useState<"loading" | "ready" | "missing">(
+    "loading",
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [loaded, ai] = await Promise.all([
+          getDeal(storageMode, dealId),
+          fetchLiveAi(),
+        ]);
+        if (cancelled) return;
+        setLiveAi(ai);
+        if (!loaded) {
+          setStatus("missing");
+          return;
+        }
+        setDeal(loaded);
+        setStatus("ready");
+      } catch {
+        if (!cancelled) setStatus("missing");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [dealId, storageMode]);
+
+  if (status === "loading") {
+    return (
+      <div className="mx-auto max-w-6xl px-4 py-16 text-sm text-slate-500">
+        Loading deal…
+      </div>
+    );
+  }
+
+  if (status === "missing" || !deal) {
+    return (
+      <div className="mx-auto max-w-6xl space-y-3 px-4 py-16">
+        <p className="font-display text-2xl text-slate-900">Deal not found</p>
+        <p className="text-sm text-slate-600">
+          This deal is not in this browser session. Start a walkthrough from the
+          home page.
+        </p>
+        <Link href="/" className="text-sm font-medium text-teal-900 underline">
+          ← All deals
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <DealWizardReady
+      key={deal.id}
+      initialDeal={deal}
+      initialLiveAi={liveAi}
+      storageMode={storageMode}
+    />
+  );
+}
+
+function DealWizardReady({
   initialDeal,
   initialLiveAi,
+  storageMode,
 }: {
   initialDeal: Deal;
   initialLiveAi: boolean;
+  storageMode: StorageMode;
 }) {
   const [deal, setDeal] = useState(initialDeal);
   const [liveAi, setLiveAi] = useState(initialLiveAi);
@@ -157,6 +237,7 @@ export function DealWizard({
 
   function refreshFrom(payload: { deal?: Deal; liveAi?: boolean }) {
     if (payload.deal) {
+      dealRef.current = payload.deal;
       setDeal(payload.deal);
       setTranscriptDraft(payload.deal.transcript ?? "");
     }
@@ -165,7 +246,7 @@ export function DealWizard({
 
   function requestGenerate(
     stepKey: GenerateStep,
-    opts: { skipIfPresent?: boolean; prefetch?: boolean } = {},
+    opts: { skipIfPresent?: boolean; prefetch?: boolean; deal?: Deal } = {},
   ) {
     const existing = inflight.current[stepKey];
     if (existing) return existing;
@@ -174,19 +255,39 @@ export function DealWizard({
     aborts.current[stepKey] = ac;
 
     const promise = (async () => {
-      const res = await fetch(`/api/deals/${dealRef.current.id}/generate`, {
+      const snapshot = opts.deal ?? dealRef.current;
+      if (opts.skipIfPresent && snapshot[stepKey]) {
+        return { deal: snapshot, liveAi };
+      }
+
+      const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           step: stepKey,
+          deal: snapshot,
           skipIfPresent: opts.skipIfPresent ?? false,
-          prefetch: opts.prefetch ?? false,
         }),
         signal: ac.signal,
       });
-      const json = (await res.json()) as GenResult;
+      const json = (await res.json()) as {
+        artifact?: unknown;
+        liveAi?: boolean;
+        error?: string;
+      };
       if (!res.ok) throw new Error(json.error || "Generation failed");
-      return json;
+
+      const merged = mergeArtifact(
+        snapshot,
+        stepKey,
+        json.artifact,
+        Boolean(opts.prefetch),
+      );
+      const persisted = await patchDeal(storageMode, snapshot.id, {
+        [stepKey]: json.artifact,
+        ...(opts.prefetch ? {} : { current_step: merged.current_step }),
+      });
+      return { deal: persisted, liveAi: json.liveAi };
     })().finally(() => {
       if (inflight.current[stepKey] === promise) {
         delete inflight.current[stepKey];
@@ -197,13 +298,17 @@ export function DealWizard({
     return promise;
   }
 
-  function prefetchStep(n: number) {
-    if (!canGenerate(dealRef.current, n)) return;
-    if (artifactForStep(dealRef.current, n)) return;
+  function prefetchStep(n: number, fromDeal = dealRef.current) {
+    if (!canGenerate(fromDeal, n)) return;
+    if (artifactForStep(fromDeal, n)) return;
     const key = columnForStep(n);
     const label = META[n - 1]?.title;
     setPreparing(label);
-    requestGenerate(key, { skipIfPresent: true, prefetch: true })
+    requestGenerate(key, {
+      skipIfPresent: true,
+      prefetch: true,
+      deal: fromDeal,
+    })
       .then((json) => refreshFrom(json))
       .catch(() => {})
       .finally(() => {
@@ -260,20 +365,17 @@ export function DealWizard({
     setEditing(false);
     try {
       if (step === 3) {
-        const saved = await fetch(`/api/deals/${deal.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ transcript: transcriptDraft }),
+        const saved = await patchDeal(storageMode, deal.id, {
+          transcript: transcriptDraft,
         });
-        const savedJson = await saved.json();
-        if (!saved.ok) throw new Error(savedJson.error || "Could not save transcript");
-        refreshFrom(savedJson);
+        refreshFrom({ deal: saved });
       }
       const json = await requestGenerate(columnForStep(step), {
         skipIfPresent: !artifact,
+        deal: dealRef.current,
       });
       refreshFrom(json);
-      if (json.deal) prefetchStep(step + 1);
+      if (json.deal) prefetchStep(step + 1, json.deal);
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") return;
       setError(e instanceof Error ? e.message : "Generation failed");
@@ -296,17 +398,13 @@ export function DealWizard({
     setError(null);
     setBusy("Saving...");
     try {
-      const res = await fetch(`/api/deals/${deal.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [columnForStep(step)]: draft }),
+      const saved = await patchDeal(storageMode, deal.id, {
+        [columnForStep(step)]: draft,
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Save failed");
-      refreshFrom(json);
+      refreshFrom({ deal: saved });
       setEditing(false);
       setDraft(null);
-      prefetchStep(step + 1);
+      prefetchStep(step + 1, saved);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed");
     } finally {
@@ -318,15 +416,11 @@ export function DealWizard({
     setError(null);
     setBusy("Saving transcript...");
     try {
-      const res = await fetch(`/api/deals/${deal.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcript: transcriptDraft }),
+      const saved = await patchDeal(storageMode, deal.id, {
+        transcript: transcriptDraft,
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Save failed");
-      refreshFrom(json);
-      if (step === 3) prefetchStep(3);
+      refreshFrom({ deal: saved });
+      if (step === 3) prefetchStep(3, saved);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed");
     } finally {
@@ -340,11 +434,9 @@ export function DealWizard({
     setEditing(false);
     setDraft(null);
     setError(null);
-    await fetch(`/api/deals/${deal.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ current_step: next }),
-    });
+    await patchDeal(storageMode, deal.id, { current_step: next }).then(
+      (saved) => refreshFrom({ deal: saved }),
+    );
   }
 
   const markdown = useMemo(() => {

@@ -43,12 +43,24 @@ The badge in the header tells you which mode is active. New deals (any company) 
 5. **Solution** — architecture, modules, phase 1 vs later
 6. **Proposal** — summary, scope, timeline, exclusions, pricing inputs, next steps
 
-Edits are saved to SQLite and become context for the next Generate.
+Edits become context for the next Generate. Locally they are stored in SQLite (`data/deals.db`). On Vercel they stay in this browser's `localStorage`.
+
+## Deploy on Vercel
+
+The hosted demo does not use SQLite. Deals live in the browser, and only `/api/generate` plus `/api/mode` run on the server.
+
+Set these in the Vercel project if you want Live AI:
+
+- `OPENAI_API_KEY`
+- `OPENROUTER_API_KEY`
+- `OPENROUTER_MODEL`
+- `OPENROUTER_FALLBACK_MODELS`
+
+Without keys, the seeded Northline walkthrough still works. A different browser or device starts with an empty deal list.
 
 ## Stack
 
 - Next.js 15 (App Router) + TypeScript + Tailwind
-- SQLite via `better-sqlite3` (`data/deals.db`, created on first run)
-- OpenAI SDK (`gpt-4o-mini`) when a key is present
-
-No auth, Docker, or cloud deploy — run it on the workshop laptop.
+- SQLite via `better-sqlite3` locally (`data/deals.db`)
+- Browser `localStorage` on Vercel
+- OpenAI SDK (`gpt-4o-mini`) and optional OpenRouter fallback when keys are present
