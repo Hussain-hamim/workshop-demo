@@ -1,16 +1,20 @@
 "use client";
 
 import { Radio, Sparkles } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 export function ModeBadge({ liveAi }: { liveAi: boolean }) {
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${
-        liveAi ? "bg-emerald-400 text-emerald-950" : "bg-amber-100 text-amber-950"
-      }`}
+    <Badge
+      variant="secondary"
+      className={
+        liveAi
+          ? "h-auto gap-1.5 rounded-full bg-emerald-400 px-3 py-1.5 text-xs font-semibold text-emerald-950 hover:bg-emerald-400"
+          : "h-auto gap-1.5 rounded-full bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-950 hover:bg-amber-100"
+      }
     >
-      {liveAi ? <Sparkles size={14} /> : <Radio size={14} />}
+      {liveAi ? <Sparkles /> : <Radio />}
       {liveAi ? "Live AI" : "Demo mode"}
-    </span>
+    </Badge>
   );
 }

@@ -32,7 +32,7 @@ export function FollowUpQuestionsView({ data, editing, onChange }: Props) {
   return (
     <div className="space-y-5">
       {!editing ? (
-        <div className="card grid gap-6 p-5 md:grid-cols-[220px_1fr]">
+        <div className="surface-card grid gap-6 p-5 md:grid-cols-[220px_1fr]">
           <Donut
             value={coverage}
             label="Discovery coverage"

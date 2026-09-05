@@ -1,6 +1,14 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { EditableSection } from "./EditableSection";
 import { IconBubble } from "./visuals";
 
@@ -20,17 +28,21 @@ export function SectionCard({
   className?: string;
 }) {
   return (
-    <section
-      className={`card p-5 ${highlight ? "ring-2 ring-orange-400/70" : ""} ${className}`}
+    <Card
+      className={cn(
+        "rounded-2xl shadow-[0_1px_0_rgba(255,255,255,0.8)_inset,0_18px_40px_-28px_rgba(15,28,36,0.45)]",
+        highlight && "ring-2 ring-orange-400/70",
+        className,
+      )}
     >
-      <div className="mb-3 flex items-center gap-3">
-        <IconBubble icon={icon} tone={tone} />
-        <h3 className="text-sm font-semibold tracking-wide text-slate-800">
+      <CardHeader className="pb-0">
+        <CardTitle className="flex items-center gap-3 text-sm font-semibold tracking-wide text-foreground">
+          <IconBubble icon={icon} tone={tone} />
           {title}
-        </h3>
-      </div>
-      {children}
-    </section>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
   );
 }
 
@@ -38,12 +50,13 @@ export function ChipList({ items }: { items: string[] }) {
   return (
     <div className="flex flex-wrap gap-2">
       {items.filter(Boolean).map((item, i) => (
-        <span
+        <Badge
           key={`${item}-${i}`}
-          className="rounded-full bg-teal-950/8 px-3 py-1 text-sm text-slate-800 ring-1 ring-teal-950/10"
+          variant="secondary"
+          className="h-auto rounded-full px-3 py-1 text-sm font-normal text-foreground"
         >
           {item}
-        </span>
+        </Badge>
       ))}
     </div>
   );

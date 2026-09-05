@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { DM_Sans, Fraunces } from "next/font/google";
+import { cn } from "@/lib/utils";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -24,10 +25,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${dmSans.variable} ${fraunces.variable} antialiased`}>
-        {children}
-      </body>
+    <html lang="en" className={cn(dmSans.variable, fraunces.variable)}>
+      <body className="font-sans antialiased">{children}</body>
     </html>
   );
 }

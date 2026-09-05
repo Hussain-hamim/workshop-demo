@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { Check } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { GenerateStep } from "@/lib/types";
 
 const STAGES: Record<GenerateStep, string[]> = {
@@ -80,10 +83,10 @@ export function AiLoadingState({
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-teal-200">
             Activity
           </p>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-400/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-300">
+          <Badge className="h-auto gap-1.5 rounded-full border-transparent bg-emerald-400/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-300 hover:bg-emerald-400/15">
             <span className="status-dot" />
             Working
-          </span>
+          </Badge>
         </div>
         <p className="font-display mt-3 text-xl leading-snug">
           {refining ? `Updating ${title}` : `Creating ${title.toLowerCase()}`}
@@ -131,13 +134,14 @@ export function AiLoadingState({
           </p>
         )}
         {onCancel ? (
-          <button
+          <Button
             type="button"
+            variant="link"
             onClick={onCancel}
-            className="mt-4 text-xs font-medium text-teal-100 underline decoration-teal-100/40 underline-offset-2"
+            className="mt-4 h-auto px-0 text-xs font-medium text-teal-100"
           >
             Cancel this run
-          </button>
+          </Button>
         ) : null}
       </aside>
       <SkeletonCanvas step={step} />
@@ -158,19 +162,20 @@ export function AiWorkingBanner({
         <span className="status-dot" />
         Updating {title} · previous version still visible
       </p>
-      <button
+      <Button
         type="button"
+        variant="link"
         onClick={onCancel}
-        className="text-xs font-medium underline decoration-white/30 underline-offset-2"
+        className="h-auto px-0 text-xs font-medium text-teal-50"
       >
         Cancel this run
-      </button>
+      </Button>
     </div>
   );
 }
 
 function Bone({ className = "" }: { className?: string }) {
-  return <div className={`skeleton-bone rounded-lg ${className}`} />;
+  return <Skeleton className={`rounded-lg bg-transparent skeleton-bone ${className}`} />;
 }
 
 function SkeletonCanvas({ step }: { step: GenerateStep }) {

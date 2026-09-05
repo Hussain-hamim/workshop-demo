@@ -1,5 +1,7 @@
 "use client";
 
+import { Textarea } from "@/components/ui/textarea";
+
 type Props = {
   editing: boolean;
   label: string;
@@ -20,13 +22,13 @@ export function EditableSection({
   return (
     <section className="space-y-2">
       {label ? (
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {label}
         </h3>
       ) : null}
       {editing ? (
-        <textarea
-          className="min-h-[88px] w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm leading-relaxed text-slate-800 outline-none focus:border-teal-800 focus:ring-2 focus:ring-teal-800/20"
+        <Textarea
+          className="min-h-[88px] rounded-xl bg-background text-sm leading-relaxed"
           value={text}
           onChange={(e) =>
             list
@@ -35,16 +37,16 @@ export function EditableSection({
           }
         />
       ) : list && Array.isArray(value) ? (
-        <ul className="space-y-1.5 text-sm leading-relaxed text-slate-800">
+        <ul className="space-y-1.5 text-sm leading-relaxed text-foreground">
           {value.filter(Boolean).map((item, i) => (
             <li key={`${item}-${i}`} className="flex gap-2">
-              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-teal-800" />
+              <span className="mt-2 size-1.5 shrink-0 rounded-full bg-teal" />
               <span>{item}</span>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
+        <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
           {text || "—"}
         </p>
       )}

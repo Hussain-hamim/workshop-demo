@@ -20,6 +20,12 @@ import {
   patchDeal,
 } from "@/lib/clientDeals";
 import { proposalToMarkdown } from "@/lib/proposalMarkdown";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import { AccountBriefView } from "./AccountBriefView";
 import { DiscoveryPlanView } from "./DiscoveryPlanView";
 import { FollowUpQuestionsView } from "./FollowUpQuestionsView";
@@ -484,14 +490,14 @@ function DealWizardReady({
         <div>
           <Link
             href="/"
-            className="text-sm font-medium text-teal-900 hover:underline"
+            className="text-sm font-medium text-teal hover:underline"
           >
             ← All deals
           </Link>
-          <h1 className="font-display mt-2 text-3xl tracking-tight text-slate-900">
+          <h1 className="font-display mt-2 text-3xl tracking-tight text-foreground">
             {deal.company_name}
           </h1>
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-muted-foreground">
             {deal.contact_name}
             {deal.contact_title ? ` · ${deal.contact_title}` : ""}
             {deal.company_url ? ` · ${deal.company_url}` : ""}
@@ -501,9 +507,11 @@ function DealWizardReady({
         <ModeBadge liveAi={liveAi} />
       </div>
 
-      <div className="card p-4">
-        <Pipeline active={FLOW_INDEX[step] ?? 0} />
-      </div>
+      <Card className="rounded-2xl shadow-[0_1px_0_rgba(255,255,255,0.8)_inset,0_18px_40px_-28px_rgba(15,28,36,0.45)]">
+        <CardContent className="py-4">
+          <Pipeline active={FLOW_INDEX[step] ?? 0} />
+        </CardContent>
+      </Card>
 
       <Stepper
         current={step}
@@ -515,62 +523,69 @@ function DealWizardReady({
         }}
       />
 
-      <section className="card p-6">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+      <Card className="rounded-2xl shadow-[0_1px_0_rgba(255,255,255,0.8)_inset,0_18px_40px_-28px_rgba(15,28,36,0.45)]">
+        <CardContent className="space-y-6 py-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-800">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal">
               Step {step} of 6
             </p>
-            <h2 className="font-display text-2xl text-slate-900">
+            <h2 className="font-display text-2xl text-foreground">
               {meta.title}
             </h2>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {preparing ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-950/8 px-3 py-1.5 text-xs font-medium text-teal-900">
+              <Badge
+                variant="secondary"
+                className="h-auto gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium"
+              >
                 <span className="status-dot" />
                 {preparing} · running in background
-              </span>
+              </Badge>
             ) : null}
             {artifact && !editing ? (
-              <button
+              <Button
                 type="button"
-                className="inline-flex items-center gap-1.5 rounded-xl border border-stone-300 px-3 py-2 text-sm"
+                variant="outline"
+                className="rounded-xl"
                 onClick={() => {
                   setDraft(artifact);
                   setEditing(true);
                 }}
               >
-                <Pencil size={14} /> Edit
-              </button>
+                <Pencil /> Edit
+              </Button>
             ) : null}
             {editing ? (
               <>
-                <button
+                <Button
                   type="button"
-                  className="rounded-xl border border-stone-300 px-3 py-2 text-sm"
+                  variant="outline"
+                  className="rounded-xl"
                   onClick={() => {
                     setEditing(false);
                     setDraft(null);
                   }}
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
-                  className="rounded-xl bg-teal-900 px-3 py-2 text-sm text-white disabled:opacity-50"
+                  className="rounded-xl"
                   disabled={Boolean(busy)}
                   onClick={saveEdits}
                 >
                   Save changes
-                </button>
+                </Button>
               </>
             ) : null}
-            <button
+            <Button
               type="button"
-              className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 ${
-                artifact ? "bg-slate-900" : "pulse-ring bg-teal-900"
-              }`}
+              className={cn(
+                "rounded-xl font-semibold",
+                !artifact && "pulse-ring",
+              )}
               disabled={isWorking || Boolean(busy)}
               onClick={generate}
             >
@@ -580,80 +595,94 @@ function DealWizardReady({
                 </>
               ) : artifact ? (
                 <>
-                  <RefreshCw size={14} /> Regenerate
+                  <RefreshCw /> Regenerate
                 </>
               ) : (
                 <>
-                  <Sparkles size={14} /> {meta.generate}
+                  <Sparkles /> {meta.generate}
                 </>
               )}
-            </button>
+            </Button>
             {step < 6 ? (
-              <button
+              <Button
                 type="button"
-                className="inline-flex items-center gap-1.5 rounded-xl border border-teal-900 px-3 py-2 text-sm text-teal-950"
+                variant="outline"
+                className="rounded-xl border-primary text-primary"
                 onClick={goNext}
               >
-                Continue <ArrowRight size={14} />
-              </button>
+                Continue <ArrowRight />
+              </Button>
             ) : null}
             {step === 6 && deal.proposal ? (
-              <button
+              <Button
                 type="button"
-                className="inline-flex items-center gap-1.5 rounded-xl border border-stone-300 px-3 py-2 text-sm"
+                variant="outline"
+                className="rounded-xl"
                 onClick={async () => {
                   await navigator.clipboard.writeText(markdown);
                   setCopied(true);
                   setTimeout(() => setCopied(false), 1500);
                 }}
               >
-                <Copy size={14} /> {copied ? "Copied" : "Copy Markdown"}
-              </button>
+                <Copy /> {copied ? "Copied" : "Copy Markdown"}
+              </Button>
             ) : null}
           </div>
         </div>
 
         {error ? (
-          <div className="mb-4 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-800">
-            {error}{" "}
-            <button type="button" className="underline" onClick={generate}>
-              Regenerate
-            </button>
-          </div>
+          <Alert
+            variant="destructive"
+            className="rounded-xl border-destructive/20 bg-red-50"
+          >
+            <AlertDescription className="text-red-800">
+              {error}{" "}
+              <Button
+                type="button"
+                variant="link"
+                className="h-auto px-0 text-red-800"
+                onClick={generate}
+              >
+                Regenerate
+              </Button>
+            </AlertDescription>
+          </Alert>
         ) : null}
 
         {step === 3 ? (
-          <div className="mb-8 space-y-2">
+          <div className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Call transcript
               </h3>
               <div className="flex flex-wrap items-center gap-2">
-                <button
+                <Button
                   type="button"
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-teal-900 px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
+                  size="sm"
+                  className="rounded-xl"
                   disabled={Boolean(busy)}
                   onClick={generateMockTranscript}
                 >
-                  <Sparkles size={14} />
+                  <Sparkles />
                   {busy === "Writing transcript..."
                     ? "Writing transcript…"
                     : transcriptDraft.trim()
                       ? "Regenerate mock transcript"
                       : "Generate mock transcript"}
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
-                  className="text-sm text-teal-900 underline disabled:opacity-50"
+                  variant="link"
+                  className="h-auto px-0 text-teal"
                   disabled={Boolean(busy)}
                   onClick={saveTranscript}
                 >
                   Save transcript
-                </button>
+                </Button>
               </div>
             </div>
-            <textarea
-              className="min-h-[200px] w-full rounded-2xl border border-stone-300 bg-[#fbfaf6] px-4 py-3 font-mono text-xs leading-relaxed outline-none focus:border-teal-800 focus:ring-2 focus:ring-teal-800/20"
+            <Textarea
+              className="min-h-[200px] rounded-2xl bg-[#fbfaf6] font-mono text-xs leading-relaxed"
               value={transcriptDraft}
               onChange={(e) => setTranscriptDraft(e.target.value)}
               placeholder="Paste a discovery call, or generate a mock transcript with AI."
@@ -712,10 +741,10 @@ function DealWizardReady({
               </div>
             </>
           ) : !viewData ? (
-            <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 px-6 py-16 text-center">
-              <Sparkles className="mx-auto text-teal-800" />
+            <div className="rounded-2xl border border-dashed border-border bg-muted/40 px-6 py-16 text-center">
+              <Sparkles className="mx-auto text-teal" />
               <p className="mt-3 font-display text-xl">Nothing on this stage yet</p>
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-1 text-sm text-muted-foreground">
                 Use {meta.generate} so the room can watch this appear.
               </p>
             </div>
@@ -757,7 +786,8 @@ function DealWizardReady({
             />
           )}
         </div>
-      </section>
+        </CardContent>
+      </Card>
     </div>
   );
 }

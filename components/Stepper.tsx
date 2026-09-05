@@ -8,6 +8,8 @@ import {
   Lightbulb,
   Search,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const STEPS = [
   { n: 1, label: "Research", icon: Search },
@@ -32,23 +34,31 @@ export function Stepper({ current, onSelect }: Props) {
         const Icon = step.icon;
         return (
           <li key={step.n}>
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={() => onSelect(step.n)}
-              className={`flex w-full items-center gap-2 rounded-2xl px-3 py-3 text-left transition ${
-                active
-                  ? "bg-teal-950 text-white shadow-lg shadow-teal-950/20"
-                  : done
-                    ? "bg-teal-950/10 text-teal-950"
-                    : "bg-white/80 text-slate-500 ring-1 ring-stone-200"
-              }`}
+              className={cn(
+                "h-auto w-full justify-start gap-2 rounded-2xl px-3 py-3 text-left transition",
+                active &&
+                  "border-transparent bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90 hover:text-primary-foreground",
+                done &&
+                  !active &&
+                  "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
+                !active &&
+                  !done &&
+                  "bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
             >
               <span
-                className={`flex h-8 w-8 items-center justify-center rounded-xl ${
-                  active ? "bg-white/15" : done ? "bg-teal-950 text-white" : "bg-stone-100"
-                }`}
+                className={cn(
+                  "flex size-8 items-center justify-center rounded-xl",
+                  active && "bg-white/15",
+                  done && !active && "bg-primary text-primary-foreground",
+                  !active && !done && "bg-muted",
+                )}
               >
-                <Icon size={16} />
+                <Icon className="size-4" />
               </span>
               <span>
                 <span className="block text-[10px] uppercase tracking-widest opacity-70">
@@ -56,7 +66,7 @@ export function Stepper({ current, onSelect }: Props) {
                 </span>
                 <span className="text-sm font-semibold">{step.label}</span>
               </span>
-            </button>
+            </Button>
           </li>
         );
       })}
